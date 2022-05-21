@@ -97,6 +97,8 @@ def main():
     # принятия решений и случайного леса
     max_f1 = np.zeros(3)
     max_f1_forest = np.zeros(3)
+    max_f1_micro = 0
+    max_f1_micro_forest = 0
     
     # массив для записи оптимального значения параметра минимального количества 
     # примеров из обучающей выборки, которые должны попасть при обучении в лист
@@ -110,8 +112,8 @@ def main():
     opt_depth_forest = np.zeros(3)
     
     # количество деревьев в случайном лесу
-    q_trees = 3
-    
+    q_trees = 11
+    counter = 0
     # цикл для определения оптимальных параметров обучения
     for samples in range(1, det+1):
         for depth in range(det):
@@ -134,6 +136,13 @@ def main():
             f1_after = f1_score(test_set[label_col].to_numpy(),
                                 predictions_after, 
                                 average = None)
+            f1_tree_micro = f1_score(test_set[label_col].to_numpy(),
+                                predictions_after, 
+                                average = 'micro')
+            if f1_tree_micro > max_f1_micro: 
+                max_f1_micro = f1_tree_micro
+                opt_samples_micro = samples
+                opt_depth_micro = depth
             
             # формирование объекта класса Random_forest, который определён в
             # файле Ramdom_forest.py
@@ -149,7 +158,7 @@ def main():
             # подрезка деревьев леса (без подрезки классификация случайным
             # лесом лучше из-за того, что в наборе доля 1 из классов составляет
             # 8%)
-            # forest.prune_forest(dev_set)
+            forest.prune_forest(dev_set)
             
             # предсказания классов случайным лесом
             predictions_forest = forest.predict(test_set)
@@ -158,6 +167,13 @@ def main():
             f1_forest = f1_score(test_set[label_col].to_numpy(),
                                 predictions_forest, 
                                 average = None)
+            f1_forest_micro = f1_score(test_set[label_col].to_numpy(),
+                                predictions_forest, 
+                                average = 'micro')
+            if f1_forest_micro > max_f1_micro_forest: 
+                max_f1_micro_forest = f1_forest_micro
+                opt_samples_forest_micro = samples
+                opt_depth_forest_micro = depth
             
             # запись очередных метрик классов в матрицы
             for i in range(3):
@@ -184,6 +200,8 @@ def main():
                         opt_depth_forest[i] = depth
                     max_f1_forest[i] = f1_forest[i]
                     opt_samples_forest[i] = samples
+            print(counter)
+            counter += 1
     
     # массив меток классов
     labels = ['Balanced', 'Left', 'Right']
@@ -230,10 +248,10 @@ def main():
     
     # формирование дерева с отимальными параметрами обучения
     # так как оптимальные параметры вычислены для каждого класса в отдельности
-    # берётся среднее значение для каждого парметра
+    # берётся среднее значение для каждого параметра
     root = Node(X = train_set, label_col = label_col,
-                max_depth = int(np.mean(opt_depth)),
-                min_samples_split = int(np.mean(opt_samples)))
+                max_depth = opt_depth_micro,
+                min_samples_split = opt_samples_micro)
     
     
     # выращивание дерева
@@ -252,16 +270,15 @@ def main():
     
     # формирование объекта случайного леса с оптимальными параметрами обучения
     forest = Random_forest(X = train_set, label_col = label_col,
-                           min_samples_split = 
-                           int(np.mean(opt_samples_forest)), 
-                           max_depth = int(np.mean(opt_depth_forest)),
+                           min_samples_split = opt_samples_forest_micro, 
+                           max_depth = opt_depth_forest_micro,
                            q_trees = q_trees)
     
     # выращивание леса
     forest.grow_forest()
     
     # подрезка деревьев леса
-    # forest.prune_forest(dev_set)
+    forest.prune_forest(dev_set)
     
     # классификация по случайному лесу
     predictions_forest = forest.predict(test_set)

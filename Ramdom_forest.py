@@ -7,6 +7,10 @@ import pandas as pd
 # импорт библиотеки для обработки массивов
 import numpy as np
 
+from tqdm import tqdm
+
+import random
+
 # класс случайного леса
 class Random_forest:
     '''
@@ -59,24 +63,25 @@ class Random_forest:
         # атрибут записи массива объектов выращенных деревьев
         self.forest = None
         
+        # список названий атрибутов
+        self.features = list(self.X.columns[1:])
+        
     def grow_forest(self):
         '''
         Метод для выращивания случайного леса
         '''
         df = self.X.copy()
         
-        # Разделение теренировочного сета на равные части для определённого
-        # количества деревьев
-        split = np.array_split(df, self.q_trees)
-        
         # массив для записи объектов класса дерево принятия решений
         trees = []
         
-        # счётчик индекса очередного дерева
-        counter = 0
-        
         # цикл для прохода по подвыборкам разделённого датачсета
-        for piece in split:
+        for i in tqdm(range(self.q_trees)):
+            
+            current_labels = random.sample(self.features, 2)
+            
+            piece = df.sample(frac = 1)[:int(len(df)*0.7)]
+            piece.drop(columns = current_labels)
             
             # формирование очередного объекта класса дерево принятия решений
             trees.append(Node(X = piece, label_col = self.label_col,
@@ -85,9 +90,7 @@ class Random_forest:
                               rule_value_step = self.rule_value_step))
             
             # выращивание очередного дерева
-            trees[counter].grow_tree()
-            
-            counter += 1
+            trees[i].grow_tree()
         
         # запись полученного леса в соответствующий атрибут
         self.forest = trees
@@ -138,7 +141,7 @@ class Random_forest:
             predictions.append(self.forest[i].predict(df))
             
         # транспланирование матрицы предскзаний для записи в 1 строку
-        # метод для одного и того же экземпляра
+        # меток для одного и того же экземпляра
         mag_predictions = list(np.array(predictions).transpose())
                 
         # Цикл для выбора мажоритарного значения предсказания
